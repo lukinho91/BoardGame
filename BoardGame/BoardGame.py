@@ -6,7 +6,7 @@ pygame.init()
 
 # --- Ablak ---
 screen = pygame.display.set_mode((700, 700))
-pygame.display.set_caption("Kattintható pontok – Szomszédos lépés, 1 piros, max 2 kék")
+pygame.display.set_caption("Kattintható pontok – 1 piros, max 2 kék (három szín)")
 
 # --- Beállítások ---
 line_color = (0, 255, 0)
@@ -16,17 +16,17 @@ font = pygame.font.SysFont("Arial", 18)
 
 # --- Pontok ---
 points = [
-    {"pos": [50, 50], "color": (200, 200, 200), "label": "0", "ertek": 0},
-    {"pos": [350, 50], "color": (200, 200, 200), "label": "1", "ertek": 0},
-    {"pos": [50, 350], "color": (200, 200, 200), "label": "2", "ertek": 0},
-    {"pos": [350, 350], "color": (200, 200, 200), "label": "3", "ertek": 0},
-    {"pos": [200, 200], "color": (200, 200, 200), "label": "4", "ertek": 0},
-    {"pos": [450, 400], "color": (200, 200, 200), "label": "5", "ertek": 0},
-    {"pos": [450, 650], "color": (200, 200, 200), "label": "6", "ertek": 0},
-    {"pos": [600, 400], "color": (200, 200, 200), "label": "7", "ertek": 0},
-    {"pos": [600, 300], "color": (200, 200, 200), "label": "8", "ertek": 0},
-    {"pos": [50, 500], "color": (200, 200, 200), "label": "9", "ertek": 0},
-    {"pos": [200, 400], "color": (200, 200, 200), "label": "10", "ertek": 0},
+    {"pos": [50, 50], "color": (200, 200, 200), "label": "Müpa", "ertek": 0},
+    {"pos": [350, 50], "color": (200, 200, 200), "label": "Deák", "ertek": 0},
+    {"pos": [50, 350], "color": (200, 200, 200), "label": "Blaha", "ertek": 0},
+    {"pos": [350, 350], "color": (200, 200, 200), "label": "Astoria", "ertek": 0},
+    {"pos": [200, 200], "color": (200, 200, 200), "label": "Corvin", "ertek": 0},
+    {"pos": [450, 400], "color": (200, 200, 200), "label": "Parlamant", "ertek": 0},
+    {"pos": [450, 650], "color": (200, 200, 200), "label": "BME", "ertek": 0},
+    {"pos": [600, 400], "color": (200, 200, 200), "label": "ELTE", "ertek": 0},
+    {"pos": [600, 300], "color": (200, 200, 200), "label": "Újpest", "ertek": 0},
+    {"pos": [50, 500], "color": (200, 200, 200), "label": "Kispest", "ertek": 0},
+    {"pos": [200, 400], "color": (200, 200, 200), "label": "Psukás", "ertek": 0},
 ]
 
 # --- Vonalak ---
@@ -51,10 +51,10 @@ lines = [
 click_count = 0
 running = True
 red_point = None
-blue_points = []
+blue1_point = None
+blue2_point = None
 
 def is_neighbor(p1, p2):
-    """Ellenőrzi, hogy p1 és p2 között van-e vonal (szomszédosak-e)."""
     pos1 = p1["pos"]
     pos2 = p2["pos"]
     for start, end in lines:
@@ -70,41 +70,49 @@ while running:
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
 
-            # Piros pont: páros kattintás, Kék pont: páratlan
-            target_color = (255, 0, 0) if (click_count % 2 == 0) else (0, 0, 255)
+            # --- Szín kiválasztása kattintásszám alapján ---
+            if click_count % 2 == 1:
+                target_color = (255, 0, 0)  # piros
+            elif click_count % 4 == 2:
+                target_color = (0, 0, 255)  # kék1
+            else:
+                target_color = (0, 1, 255)  # kék2
 
             for p in points:
                 dx = mouse_pos[0] - p["pos"][0]
                 dy = mouse_pos[1] - p["pos"][1]
                 distance = math.hypot(dx, dy)
 
-                # Csak szürkére lehet kattintani
-                if distance <= point_radius and p["color"] == (200, 200, 200):
+                if distance <= point_radius and ((target_color == (255,0,0)) or p["color"] == (200,200,200)):
 
-                    # Szomszédság ellenőrzés
+                    # --- Szomszédság ellenőrzés ---
                     if target_color == (255, 0, 0):
-                        if red_point and not is_neighbor(red_point, p):
+                        if red_point and p != red_point and not is_neighbor(red_point, p):
                             continue
-                    else:  # kék
-                        if blue_points:
-                            # Legalább az egyik kékhez kell szomszédosnak lennie
-                            if not any(is_neighbor(bp, p) for bp in blue_points):
-                                continue
+                    elif target_color == (0, 0, 255):
+                        if blue1_point and not is_neighbor(blue1_point, p):
+                            continue
+                    else:  # kék2
+                        if blue2_point and not is_neighbor(blue2_point, p):
+                            continue
 
-                    # Piros pont kezelése
+                    # --- Piros pont kezelése ---
                     if target_color == (255, 0, 0):
-                        if red_point:
+                        if red_point and p != red_point:
                             red_point["color"] = (200, 200, 200)
                         red_point = p
-                    else:  # Kék pont kezelése
-                        if len(blue_points) >= 2:
-                            first_blue = blue_points.pop(0)
-                            first_blue["color"] = (200, 200, 200)
-                        blue_points.append(p)
+                        p["ertek"] += 1
+                    # --- Kék pont kezelése ---
+                    elif target_color == (0, 0, 255):
+                        if blue1_point and p != blue1_point:
+                            blue1_point["color"] = (200, 200, 200)
+                        blue1_point = p
+                    else:  # kék2
+                        if blue2_point and p != blue2_point:
+                            blue2_point["color"] = (200, 200, 200)
+                        blue2_point = p
 
-                    # Pont beállítása
                     p["color"] = target_color
-                    p["ertek"] += 1
                     click_count += 1
                     break
 
@@ -115,10 +123,10 @@ while running:
     for start, end in lines:
         pygame.draw.line(screen, line_color, start, end, line_width)
 
-    # --- Pontok ---
+    # --- Pontok kirajzolása ---
     for p in points:
         pygame.draw.circle(screen, p["color"], p["pos"], point_radius)
-        label_surface = font.render(str(p["label"]), True, (255, 255, 255))
+        label_surface = font.render(f"{p['label']} ({p['ertek']})", True, (255, 255, 255))
         label_rect = label_surface.get_rect(center=(p["pos"][0], p["pos"][1] - point_radius - 10))
         screen.blit(label_surface, label_rect)
 
