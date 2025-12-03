@@ -118,6 +118,7 @@ while running:
                         # Ha már van piros, és most másikra lép → előző visszaszürkül
                         if red_point and p != red_point:
                             red_point["color"] = (200, 200, 200)
+                            p["status"] = 0  # új piros pontnál státusz vissza 0-ra]
 
                         red_point = p
 
