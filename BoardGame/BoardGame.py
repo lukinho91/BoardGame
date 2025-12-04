@@ -1,28 +1,13 @@
 import pygame
 import sys
 import math
+import random
 
 pygame.init()
 
-
-
-# státuszok:
-# 0 - nincsen még készen
-# 1 - készen van
-# 2 - kirobbant egy tömegverekedés
-
-# körök
-# 1: piros -> páratlan      counter % 2 != 0
-# 2: kék1 -> osztható 2vel de nem osztahtó 4gyel   counter % 2 = 0 and counter % 4 != 0
-# 3: piros -> páratlan
-# 4: kék2 -> osztható 4gyel   counter % 4 = 0
-
-
-
-
 # --- Ablak ---
 screen = pygame.display.set_mode((700, 700))
-pygame.display.set_caption("Kattintható pontok – 1 piros, max 2 kék (három szín)")
+pygame.display.set_caption("Kattintható pontok – piros + 2 kék")
 
 # --- Beállítások ---
 line_color = (0, 255, 0)
@@ -33,16 +18,16 @@ font = pygame.font.SysFont("Arial", 18)
 # --- Pontok ---
 points = [
     {"pos": [50, 50], "color": (200, 200, 200), "label": "Müpa", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
-    {"pos": [350, 50], "color": (200, 200, 200), "label": "Deák", "ertek": 0, "status": 0,  "goal": 4,  "point_radius": 15},
-    {"pos": [50, 350], "color": (200, 200, 200), "label": "Blaha", "ertek": 0, "status": 0,  "goal": 4, "point_radius": 15},
-    {"pos": [350, 350], "color": (200, 200, 200), "label": "Astoria", "ertek": 0, "status": 0,  "goal": 4, "point_radius": 15},
+    {"pos": [350, 50], "color": (200, 200, 200), "label": "Deák", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
+    {"pos": [50, 350], "color": (200, 200, 200), "label": "Blaha", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
+    {"pos": [350, 350], "color": (200, 200, 200), "label": "Astoria", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
     {"pos": [200, 200], "color": (200, 200, 200), "label": "Corvin", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
-    {"pos": [450, 400], "color": (200, 200, 200), "label": "Parlamant", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
+    {"pos": [450, 400], "color": (200, 200, 200), "label": "Parlament", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
     {"pos": [450, 650], "color": (200, 200, 200), "label": "BME", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
     {"pos": [600, 400], "color": (200, 200, 200), "label": "ELTE", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
     {"pos": [600, 300], "color": (200, 200, 200), "label": "Újpest", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
     {"pos": [50, 500], "color": (200, 200, 200), "label": "Kispest", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
-    {"pos": [200, 400], "color": (200, 200, 200), "label": "Psukás", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
+    {"pos": [200, 400], "color": (200, 200, 200), "label": "Puskás", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15},
 ]
 
 # --- Vonalak ---
@@ -64,12 +49,7 @@ lines = [
     (points[7]["pos"], points[5]["pos"]),
 ]
 
-click_count = 0
-running = True
-red_point = None
-blue1_point = None
-blue2_point = None
-
+# --- Segédfüggvény ---
 def is_neighbor(p1, p2):
     pos1 = p1["pos"]
     pos2 = p2["pos"]
@@ -78,6 +58,41 @@ def is_neighbor(p1, p2):
             return True
     return False
 
+
+#--- Ha a kék egy olyanra lép, ahol a piros már volt akkor legyen még egy kék ---#
+
+def add_third_blue_if_needed(p):
+    """
+    Ha egy kék pont szürkére lép és annak az ertek > 0,
+    akkor egy másik véletlenszerű szürke pont is kék lesz.
+    """
+    if p["color"] == (0, 0, 255) and p["ertek"] > 0:
+        # szürke pontok listája
+        gray_points = [x for x in points if x["color"] == (200, 200, 200)]
+        if gray_points:
+            extra_blue = random.choice(gray_points)
+            extra_blue["color"] = (0, 0, 255)
+            return extra_blue  # visszaadhatjuk az új kék pontot
+    return None
+
+
+           
+
+
+
+
+# --- Játékállapot ---
+click_count = 0
+red_point = None
+blue1_point = None
+blue2_point = None
+blue3_point= None
+
+running = True
+
+# =====================================================================
+#                           FŐ CIKLUS
+# =====================================================================
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -86,81 +101,113 @@ while running:
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
 
-            # --- Szín kiválasztása kattintásszám alapján ---
+            # --- Piros vagy kék kör jön? ---
             if click_count % 2 == 1:
-                target_color = (255, 0, 0)  # piros
-            elif click_count % 4 == 2:
-                target_color = (0, 0, 255)  # kék1
+                target = "red"
             else:
-                target_color = (0, 1, 255)  # kék2
+                target = "blue"
 
+            # --- Pontok vizsgálata ---
             for p in points:
                 dx = mouse_pos[0] - p["pos"][0]
                 dy = mouse_pos[1] - p["pos"][1]
                 distance = math.hypot(dx, dy)
 
-                if distance <= point_radius and ((target_color == (255,0,0)) or p["color"] == (200,200,200)):
+                # Rákattintottál-e a körre?
+                if distance > p["point_radius"]:
+                    continue
 
-                    # --- Szomszédság ellenőrzés ---
-                    if target_color == (255, 0, 0):
-                        if red_point and p != red_point and not is_neighbor(red_point, p):
-                            continue
-                    elif target_color == (0, 0, 255):
-                        if blue1_point and not is_neighbor(blue1_point, p):
-                            continue
-                    else:  # kék2
-                        if blue2_point and not is_neighbor(blue2_point, p):
-                            continue
+                # Szürkére vagy pirosra kattinthatsz
+                if p["color"] != (200,200,200) and target != "red":
+                    continue
 
-                                        # --- Piros pont kezelése ---
-                    if target_color == (255, 0, 0):
+                # =============================
+                # ------- PIROS LÉP ---------
+                # =============================
+                if target == "red":
 
-                        # Ha már van piros, és most másikra lép → előző visszaszürkül
-                        if red_point and p != red_point:
-                            red_point["color"] = (200, 200, 200)
-                            p["status"] = 0  # új piros pontnál státusz vissza 0-ra]
+                    if red_point and p != red_point and not is_neighbor(red_point, p):
+                        continue
 
-                        red_point = p
+                    # ha volt régi piros → visszaszürkül
+                    if red_point and p != red_point:
+                        red_point["color"] = (200,200,200)
+                        red_point["status"] = 0
 
-                        # Ha piros újra rálép ugyanarra → pontot kap
-                        if p["status"] == 1:
-                            p["ertek"] += 1
+                    # új piros
+                    red_point = p
 
-                            # Ha eléri a 4-et → nőjön a kör
-                            if p["ertek"] >= p["goal"]:
-                                p["point_radius"] = 25     # ✔️ most már jó
+                    # pontgyűjtés ha státusz 1 volt
+                    if p["status"] == 1:
+                        p["ertek"] += 1
+                        if p["ertek"] >= p["goal"]:
+                            p["point_radius"] = 25
 
-                        # Első kattintás után státusz 1 lesz
-                        p["status"] = 1
-                    # --- Kék pont kezelése ---
-                    elif target_color == (0, 0, 255):
+                    p["status"] = 1
+                    p["color"] = (255,0,0)
+
+                # =============================
+                # -------- KÉK LÉP ---------
+                # =============================
+                else:
+
+                    # kék1 léphet?
+                    kek1_valid = (blue1_point is None) or is_neighbor(blue1_point, p)
+
+                    # kék2 léphet?
+                    kek2_valid = (blue2_point is None) or is_neighbor(blue2_point, p)
+
+                    #kek3 léphet?
+                    kek3_valid = (blue3_point is None) or is_neighbor(blue3_point, p)
+
+                    # melyik mozog?
+                    if kek1_valid and not kek2_valid:
+                        mover = "kek1"
+                    elif kek2_valid and not kek1_valid:
+                        mover = "kek2"
+                    elif kek3_valid and not kek1_valid or kek2_valid:
+                        mover = "kek3"
+                    elif kek1_valid and kek2_valid and kek3_valid:
+                        mover = "kek1"  # prioritás
+                    else:
+                        continue
+
+                    # --- mozgatás ---
+                    if mover == "kek1":
                         if blue1_point and p != blue1_point:
-                            blue1_point["color"] = (200, 200, 200)
+                            blue1_point["color"] = (200,200,200)
+
                         blue1_point = p
+                        p["color"] = (0,0,255)
+                        
+
                     else:  # kék2
                         if blue2_point and p != blue2_point:
-                            blue2_point["color"] = (200, 200, 200)
+                            blue2_point["color"] = (200,200,200)
                         blue2_point = p
+                        p["color"] = (0,0,255)
+                    
+                    
 
-                    p["color"] = target_color
-                    click_count += 1
-                    break
+                click_count += 1
+                break
 
-    # --- Háttér ---
+    # Háttér
     screen.fill((0, 0, 0))
 
-    # --- Vonalak ---
+    # Vonalak
     for start, end in lines:
         pygame.draw.line(screen, line_color, start, end, line_width)
 
-    # --- Pontok kirajzolása ---
+    # Pontok
     for p in points:
         pygame.draw.circle(screen, p["color"], p["pos"], p["point_radius"])
-        label_surface = font.render(f"{p['label']} ({p['ertek']})", True, (255, 255, 255))
-        label_rect = label_surface.get_rect(center=(p["pos"][0], p["pos"][1] - point_radius - 10))
+        txt = f"{p['label']} ({p['ertek']}) st:{p['status']}"
+        label_surface = font.render(txt, True, (255, 255, 255))
+        label_rect = label_surface.get_rect(center=(p["pos"][0], p["pos"][1] - p["point_radius"] - 10))
         screen.blit(label_surface, label_rect)
 
-    # --- Kattintásszámláló ---
+    # Click counter
     counter_surface = font.render(f"Kattintások: {click_count}", True, (255, 255, 0))
     screen.blit(counter_surface, (150, 10))
 
