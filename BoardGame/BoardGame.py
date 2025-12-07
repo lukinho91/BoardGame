@@ -2,233 +2,212 @@ import pygame
 import sys
 import math
 import random
+import sqlite3
+from datetime import datetime
 
+# ========================
+#      ADATBÁZIS
+# ========================
+conn = sqlite3.connect("game.db")
+c = conn.cursor()
+
+c.execute("DROP TABLE IF EXISTS points")
+c.execute("DROP TABLE IF EXISTS moves")
+c.execute("DROP TABLE IF EXISTS positions")
+
+c.execute('''CREATE TABLE points (
+    id INTEGER PRIMARY KEY,
+    label TEXT
+)''')
+
+c.execute('''CREATE TABLE moves (
+    id INTEGER PRIMARY KEY,
+    timestamp TEXT,
+    player TEXT,
+    from_point_id INTEGER,
+    point_id INTEGER,
+    new_color TEXT,
+    new_ertek INTEGER
+)''')
+
+c.execute('''CREATE TABLE positions (
+    point_id INTEGER,
+    timestamp TEXT,
+    x INTEGER,
+    y INTEGER,
+    color TEXT,
+    ertek INTEGER,
+    radius INTEGER,
+    move_id INTEGER
+)''')
+conn.commit()
+
+# ========================
+#       PYGAME
+# ========================
 pygame.init()
-
-# --- Ablak ---
 screen = pygame.display.set_mode((1000, 700))
 pygame.display.set_caption("Kattintható pontok – piros + 3 kék")
-
-# --- Beállítások ---
 line_color = (0, 255, 0)
 line_width = 2
 font = pygame.font.SysFont("Arial", 18)
 
-# --- Pontok ---
+# ========================
+#        PONTOK
+# ========================
 points = [
-    {"pos": [50, 50], "color": (200, 200, 200), "label": "Müpa", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [350, 50], "color": (200, 200, 200), "label": "Deák", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [50, 350], "color": (200, 200, 200), "label": "Blaha", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [350, 350], "color": (200, 200, 200), "label": "Astoria", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [200, 200], "color": (200, 200, 200), "label": "Corvin", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [450, 400], "color": (200, 200, 200), "label": "Parlament", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [450, 650], "color": (200, 200, 200), "label": "BME", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [600, 400], "color": (200, 200, 200), "label": "ELTE", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [600, 300], "color": (200, 200, 200), "label": "Újpest", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [50, 500], "color": (200, 200, 200), "label": "Kispest", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [200, 400], "color": (200, 200, 200), "label": "Puskás", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
-    {"pos": [350, 500], "color": (200, 200, 200), "label": "Rendőrség", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
+    {"id":0, "pos":[50,50], "label":"Müpa", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":1, "pos":[350,50], "label":"Deák", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":2, "pos":[50,350], "label":"Blaha", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":3, "pos":[350,350], "label":"Astoria", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":4, "pos":[200,200], "label":"Corvin", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":5, "pos":[450,400], "label":"Parlament", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":6, "pos":[450,650], "label":"BME", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":7, "pos":[600,400], "label":"ELTE", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":8, "pos":[600,300], "label":"Újpest", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":9, "pos":[50,500], "label":"Kispest", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":10,"pos":[200,400], "label":"Puskás", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
+    {"id":11,"pos":[350,500], "label":"Rendőrség", "color":(200,200,200), "ertek":0, "point_radius":15, "status":0},
 ]
 
-# --- Vonalak ---
+for p in points:
+    c.execute("INSERT INTO points (id,label) VALUES (?,?)",(p["id"],p["label"]))
+    color_str = ','.join(map(str,p["color"]))
+    c.execute("INSERT INTO positions (point_id,timestamp,x,y,color,ertek,radius,move_id) VALUES (?,?,?,?,?,?,?,?)",
+              (p["id"], datetime.now().isoformat(), p["pos"][0], p["pos"][1], color_str, p["ertek"], p["point_radius"], None))
+conn.commit()
+
+# ========================
+#        VONALAK
+# ========================
 lines = [
-    (points[0]["pos"], points[1]["pos"]),
-    (points[0]["pos"], points[2]["pos"]),
-    (points[1]["pos"], points[3]["pos"]),
-    (points[2]["pos"], points[3]["pos"]),
-    (points[4]["pos"], points[0]["pos"]),
-    (points[9]["pos"], points[6]["pos"]),
-    (points[6]["pos"], points[7]["pos"]),
-    (points[1]["pos"], points[8]["pos"]),
-    (points[4]["pos"], points[10]["pos"]),
-    (points[5]["pos"], points[10]["pos"]),
-    (points[4]["pos"], points[3]["pos"]),
-    (points[2]["pos"], points[9]["pos"]),
-    (points[10]["pos"], points[9]["pos"]),
-    (points[7]["pos"], points[8]["pos"]),
-    (points[7]["pos"], points[5]["pos"]),
-    (points[11]["pos"], points[5]["pos"]),
+    (points[0]["pos"], points[1]["pos"]), (points[0]["pos"], points[2]["pos"]),
+    (points[1]["pos"], points[3]["pos"]), (points[2]["pos"], points[3]["pos"]),
+    (points[4]["pos"], points[0]["pos"]), (points[9]["pos"], points[6]["pos"]),
+    (points[6]["pos"], points[7]["pos"]), (points[1]["pos"], points[8]["pos"]),
+    (points[4]["pos"], points[10]["pos"]), (points[5]["pos"], points[10]["pos"]),
+    (points[4]["pos"], points[3]["pos"]), (points[2]["pos"], points[9]["pos"]),
+    (points[10]["pos"], points[9]["pos"]), (points[7]["pos"], points[8]["pos"]),
+    (points[7]["pos"], points[5]["pos"]), (points[11]["pos"], points[5]["pos"])
 ]
 
-# --- Segédfüggvény: szomszéd vizsgálat ---
-def is_neighbor(p1, p2):
-    pos1 = p1["pos"]
-    pos2 = p2["pos"]
-    for start, end in lines:
-        if (start == pos1 and end == pos2) or (start == pos2 and end == pos1):
+def is_neighbor(p1,p2):
+    for start,end in lines:
+        if (start==p1["pos"] and end==p2["pos"]) or (start==p2["pos"] and end==p1["pos"]):
             return True
     return False
 
-def add_third_blue_if_needed(p):
-    global extra_blue_used, blue3_point
+# ========================
+#      KEZDETI KÉKEK
+# ========================
+initial_gray_points = [p for i,p in enumerate(points) if p["color"]==(200,200,200) and i!=10]
+blue1 = random.choice(initial_gray_points); blue1["color"]=(0,0,255); initial_gray_points.remove(blue1)
+blue2 = random.choice(initial_gray_points); blue2["color"]=(0,0,255); initial_gray_points.remove(blue2)
+blue3 = None
+extra_blue_used = False
+goal = 4
 
-    # Ha már egyszer létrejött → SOHA TÖBBET nem csinál új kéket
-    if extra_blue_used:
-        return None
-
-    # csak akkor hozunk létre új kéket, ha p pontgyűjtést csinált
-    if p and p["ertek"] > 0:
-
-        # összes aktuális kék (Csak 2 lehet még itt!)
-        current_blues = [x for x in points if x["color"] == (0, 0, 255)]
-
-        # Ha már 3 kék lenne → ne csináljunk újat (biztonság)
-        if len(current_blues) >= 3:
-            extra_blue_used = True
-            return None
-
-        # keresünk szürke pontot
-        gray_points = [x for x in points if x["color"] == (200,200,200)]
-        if not gray_points:
-            return None
-
-        # kiválasztjuk az extra kéket
-        extra_blue = points[11]  # mindig a "Rendőrség" pont lesz]
-        extra_blue["color"] = (0,0,255)
-        blue3_point = extra_blue
-
-        # innentől nem lehet több extra kék
-        extra_blue_used = True
-
-        print(">>> HARMADIK KÉK LÉTREJÖTT:", extra_blue["label"])
-        return extra_blue
-
-    return None
-# --- Játékállapot ---
+# ========================
+#      JÁTÉKÁLLAPOT
+# ========================
 click_count = 0
 red_point = None
-blue1_point = None
-blue2_point = None
-blue3_point = None
-active_blue = None  # aktivált kék, csak ez léphet
-excluded_index = 10  # <-- ezt a pontot nem érintheti a véletlen
-extra_blue_used = False  # jelzi, hogy létrejött-e már a 3. kék
+active_blue = None
 
-# --- Véletlenszerűen elhelyezett első 2 kék ---
+# ========================
+#      HARMADIK KÉK
+# ========================
+def add_third_blue(p):
+    global blue3, extra_blue_used
+    if extra_blue_used or blue3 is not None: return
+    if p["ertek"]>0:
+        blue3 = points[11]
+        blue3["color"]=(0,0,255)
+        extra_blue_used=True
+        print("Harmadik kék létrejött:", blue3["label"])
+        color_str = ','.join(map(str,blue3["color"]))
+        c.execute("INSERT INTO positions (point_id,timestamp,x,y,color,ertek,radius,move_id) VALUES (?,?,?,?,?,?,?,?)",
+                  (blue3["id"], datetime.now().isoformat(), blue3["pos"][0], blue3["pos"][1],
+                   color_str, blue3["ertek"], blue3["point_radius"], None))
+        conn.commit()
 
-initial_gray_points = [
-    p for i, p in enumerate(points)
-    if p["color"] == (200, 200, 200) and i != excluded_index
-]
-
-if len(initial_gray_points) >= 2:
-    blue1_point = random.choice(initial_gray_points)
-    blue1_point["color"] = (0,0,255)
-    initial_gray_points.remove(blue1_point)
-    
-    blue2_point = random.choice(initial_gray_points)
-    blue2_point["color"] = (0,0,255)
-    initial_gray_points.remove(blue2_point)
-
+# ========================
+#       FŐ CIKLUS
+# ========================
 running = True
-
-# =====================================================================
-#                           FŐ CIKLUS
-# =====================================================================
 while running:
     for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-        if event.type == pygame.MOUSEBUTTONDOWN:
+        if event.type==pygame.QUIT:
+            running=False
+        if event.type==pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
+            target = "red" if click_count%2==0 else "blue"
 
-            if click_count % 2 == 0:
-                target = "red"   # piros kezd minden kör elején páros szám
-            else:
-                target = "blue"  # kék jön utána
-
-            # --- Pontok vizsgálata ---
             for p in points:
-                dx = mouse_pos[0] - p["pos"][0]
-                dy = mouse_pos[1] - p["pos"][1]
-                distance = math.hypot(dx, dy)
+                dx = mouse_pos[0]-p["pos"][0]; dy = mouse_pos[1]-p["pos"][1]
+                if math.hypot(dx,dy)>p["point_radius"]: continue
 
-                # Rákattintottál-e a körre?
-                if distance > p["point_radius"]:
-                    continue
+                from_point_id = None
 
-                # --- PIROS LÉPÉS ---
-                if target == "red":
-                    if red_point and p != red_point and not is_neighbor(red_point, p):
-                        continue
-
-                    # ha volt régi piros → visszaszürkül
-                    if red_point and p != red_point:
-                        red_point["color"] = (200,200,200)
-                        red_point["status"] = 0
-
-                    # új piros
+                # --- PIROS ---
+                if target=="red":
+                    if red_point and p!=red_point and not is_neighbor(red_point,p): continue
+                    if red_point and p!=red_point: red_point["color"]=(200,200,200)
+                    from_point_id = red_point["id"] if red_point else None
                     red_point = p
+                    red_point["color"]=(255,0,0)
 
-                    # pontgyűjtés ha status=1 volt
-                    if p["status"] == 1:
+                    if p.get("status",0)==1:
                         p["ertek"] += 1
-                        if p["ertek"] >= p["goal"]:
+                        if p["ertek"] >= goal:
                             p["point_radius"] = 25
-
-                    p["status"] = 1
-                    p["color"] = (255,0,0)
+                    p["status"]=1
                     click_count += 1
+
+                    # Mentés moves és positions
+                    color_str = ','.join(map(str,p["color"]))
+                    c.execute("INSERT INTO moves (timestamp,player,from_point_id,point_id,new_color,new_ertek) VALUES (?,?,?,?,?,?)",
+                              (datetime.now().isoformat(),"red",from_point_id,p["id"],color_str,p["ertek"]))
+                    move_id = c.lastrowid
+                    c.execute("INSERT INTO positions (point_id,timestamp,x,y,color,ertek,radius,move_id) VALUES (?,?,?,?,?,?,?,?)",
+                              (p["id"], datetime.now().isoformat(), p["pos"][0], p["pos"][1], color_str, p["ertek"], p["point_radius"], move_id))
+                    conn.commit()
                     break
 
-                # --- KÉK LÉPÉS ---
+                # --- KÉK ---
                 else:
-                    # Ha kék pontra kattintottál → aktiválás
-                    if p["color"] == (0,0,255):
-                        active_blue = p
-                        p["color"] = (0,150,255)  # vizuális visszajelzés
-                        print("Kék aktiválva:", p["label"])
-                        break  # ne lépjen, csak aktiválódjon
+                    if p["color"]==(0,0,255):
+                        active_blue = p; p["color"]=(0,150,255); break
+                    if active_blue is None: continue
+                    if not is_neighbor(active_blue,p): continue
+                    from_point_id = active_blue["id"]
+                    active_blue["color"]=(200,200,200)
+                    add_third_blue(p)
+                    p["color"]=(0,0,255); active_blue=p; click_count+=1
 
-                    # Ha nincs aktivált kék → nem léphet
-                    if active_blue is None:
-                        continue
-
-                    # Csak szomszédos mezőre léphet
-                    if not is_neighbor(active_blue, p):
-                        continue
-
-                    # Ha lép, az előző hely visszaszürkül
-                    if active_blue != p:
-                        active_blue["color"] = (200,200,200)
-                        # Harmadik kék logika
-                        add_third_blue_if_needed(p)
-
-                    # Új pozíció kékre vált
-                    p["color"] = (0,0,255)
-                    # Frissítjük az aktivált kék referenciát
-                    if blue1_point == active_blue:
-                        blue1_point = p
-                    elif blue2_point == active_blue:
-                        blue2_point = p
-                    else:
-                        blue3_point = p
-                    active_blue = p
-
-                    click_count += 1
+                    color_str = ','.join(map(str,p["color"]))
+                    c.execute("INSERT INTO moves (timestamp,player,from_point_id,point_id,new_color,new_ertek) VALUES (?,?,?,?,?,?)",
+                              (datetime.now().isoformat(),"blue",from_point_id,p["id"],color_str,p["ertek"]))
+                    move_id = c.lastrowid
+                    c.execute("INSERT INTO positions (point_id,timestamp,x,y,color,ertek,radius,move_id) VALUES (?,?,?,?,?,?,?,?)",
+                              (p["id"], datetime.now().isoformat(), p["pos"][0], p["pos"][1], color_str, p["ertek"], p["point_radius"], move_id))
+                    conn.commit()
                     break
 
-    # --- Rajzolás ---
+    # --- RAJZOLÁS ---
     screen.fill((0,0,0))
-
-    # Vonalak
-    for start,end in lines:
-        pygame.draw.line(screen, line_color, start, end, line_width)
-
-    # Pontok
+    for start,end in lines: pygame.draw.line(screen,line_color,start,end,line_width)
     for p in points:
-        pygame.draw.circle(screen, p["color"], p["pos"], p["point_radius"])
-        txt = f"{p['label']} ({p['ertek']}"
-        label_surface = font.render(txt, True, (255,255,255))
-        label_rect = label_surface.get_rect(center=(p["pos"][0], p["pos"][1]-p["point_radius"]-10))
-        screen.blit(label_surface, label_rect)
+        pygame.draw.circle(screen,p["color"],p["pos"],p["point_radius"])
+        label_surface = font.render(f"{p['label']} ({p['ertek']})", True,(255,255,255))
+        label_rect = label_surface.get_rect(center=(p["pos"][0],p["pos"][1]-p["point_radius"]-10))
+        screen.blit(label_surface,label_rect)
 
-    # Click counter
-    counter_surface = font.render(f"Kattintások: {click_count}", True, (255,255,0))
-    screen.blit(counter_surface, (150,10))
+    counter_surface = font.render(f"Kattintások: {click_count}",True,(255,255,0))
+    screen.blit(counter_surface,(150,10))
 
     pygame.display.flip()
 
 pygame.quit()
+conn.close()
 sys.exit()
