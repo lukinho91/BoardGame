@@ -1,147 +1,102 @@
 ﻿import pygame
 import sys
-import math
+import random
 
 pygame.init()
 
 # --- Ablak ---
 screen = pygame.display.set_mode((700, 700))
-pygame.display.set_caption("Kattintható pontok – piros + kék + zöld")
-
-# --- Beállítások ---
+pygame.display.set_caption("Kattintható pontok – rácsos, összefüggő")
 line_color = (0, 255, 0)
 line_width = 2
 font = pygame.font.SysFont("Arial", 18)
 
-# --- Pontok ---
-points = [
-    {"id": 1, "pos": [50, 50], "color": (200, 200, 200), "label": "Müpa", "activate": False},
-    {"id": 2, "pos": [350, 50], "color": (200, 200, 200), "label": "Deák", "activate": False},
-    {"id": 3, "pos": [50, 350], "color": (200, 200, 200), "label": "Blaha", "activate": False},
-    {"id": 4, "pos": [350, 350], "color": (200, 200, 200), "label": "Astoria", "activate": False},
-    {"id": 5, "pos": [200, 200], "color": (200, 200, 200), "label": "Corvin", "activate": False},
-    {"id": 6, "pos": [450, 400], "color": (200, 200, 200), "label": "Parlament", "activate": False},
-    {"id": 7, "pos": [450, 650], "color": (200, 200, 200), "label": "BME", "activate": False},
-    {"id": 8, "pos": [600, 400], "color": (200, 200, 200), "label": "ELTE", "activate": False},
-    {"id": 9, "pos": [600, 300], "color": (200, 200, 200), "label": "Újpest", "activate": False},
-    {"id": 10, "pos": [50, 500], "color": (200, 200, 200), "label": "Kispest", "activate": False},
-    {"id": 11, "pos": [200, 400], "color": (200, 200, 200), "label": "Puskás", "activate": False},
-]
+# --- Beállítások ---
+rows = 4
+cols = 4
+spacing = 150
+max_blue = 3
+point_radius = 20
 
-# --- Vonalak ---
-lines = [
-    (points[0]["pos"], points[1]["pos"]),
-    (points[0]["pos"], points[2]["pos"]),
-    (points[1]["pos"], points[3]["pos"]),
-    (points[2]["pos"], points[3]["pos"]),
-    (points[4]["pos"], points[0]["pos"]),
-    (points[9]["pos"], points[6]["pos"]),
-    (points[6]["pos"], points[7]["pos"]),
-    (points[1]["pos"], points[8]["pos"]),
-    (points[4]["pos"], points[10]["pos"]),
-    (points[5]["pos"], points[10]["pos"]),
-    (points[4]["pos"], points[3]["pos"]),
-    (points[2]["pos"], points[9]["pos"]),
-    (points[10]["pos"], points[9]["pos"]),
-    (points[7]["pos"], points[8]["pos"]),
-    (points[7]["pos"], points[5]["pos"]),
-]
+# --- Csúcsok létrehozása rácsban ---
+nodes = []
+for i in range(rows):
+    for j in range(cols):
+        node = {
+            "id": i*cols + j,
+            "pos": (100 + j*spacing, 100 + i*spacing),
+            "color": (0, 0, 255),
+            "label": f"P{i*cols+j+1}",
+            "ertek": 0,
+            "point_radius": point_radius,
+            "edges": 0,
+            "max_edges": random.choice([2,3])
+        }
+        nodes.append(node)
 
-
-# --- Játékállapot ---
-click_count = 0
-red_point = None
-blue1_point = None
-blue2_point = None
-blue3_point= None
-
-
-
-
-
-# --- Függvény: szomszédok ID-ja ---
-def get_neighbors_ids(point):
+# --- Szomszédsági függvény ---
+def get_neighbors(node, all_nodes):
+    x, y = node["pos"]
     neighbors = []
-    for start, end in lines:
-        if start == point["pos"]:
-            for p in points:
-                if p["pos"] == end:
-                    neighbors.append(p["id"])
-
-        elif end == point["pos"]:
-            for p in points:
-                if p["pos"] == start:
-                    neighbors.append(p["id"])
+    for n in all_nodes:
+        if n != node and ((abs(n["pos"][0]-x) == spacing and n["pos"][1]==y) or (abs(n["pos"][1]-y) == spacing and n["pos"][0]==x)):
+            neighbors.append(n)
     return neighbors
 
-# --- Játék fő ciklus ---
-click_count = 0
-running = True
+# --- Élek generálása ---
+lines = []
 
+# Először minden csúcsnak legalább 2 él
+for node in nodes:
+    neighbors = get_neighbors(node, nodes)
+    random.shuffle(neighbors)
+    for neighbor in neighbors:
+        if node["edges"] < 2 and neighbor["edges"] < neighbor["max_edges"] and (node["pos"], neighbor["pos"]) not in lines and (neighbor["pos"], node["pos"]) not in lines:
+            lines.append((node["pos"], neighbor["pos"]))
+            node["edges"] += 1
+            neighbor["edges"] += 1
+
+# További élek maximumig
+for node in nodes:
+    neighbors = get_neighbors(node, nodes)
+    random.shuffle(neighbors)
+    for neighbor in neighbors:
+        if node["edges"] < node["max_edges"] and neighbor["edges"] < neighbor["max_edges"] and (node["pos"], neighbor["pos"]) not in lines:
+            if random.random() < 0.5:
+                lines.append((node["pos"], neighbor["pos"]))
+                node["edges"] += 1
+                neighbor["edges"] += 1
+
+# --- Fő ciklus ---
+running = True
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
-
-        # --- Piros vagy kék kör jön? ---
-        if click_count % 2 == 1:
-            target = "red"
-        else:
-            target = "blue"
-
-
-        if event.type == pygame.MOUSEBUTTONDOWN:
+        elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
-            for p in points:
-                dx = mouse_pos[0] - p["pos"][0]
-                dy = mouse_pos[1] - p["pos"][1]
-                distance = math.hypot(dx, dy)
+            for node in nodes:
+                dx = mouse_pos[0] - node["pos"][0]
+                dy = mouse_pos[1] - node["pos"][1]
+                if (dx**2 + dy**2) <= node["point_radius"]**2:
+                    node["color"] = (255, 0, 0)
 
-                if distance < 15:  # pont sugar
-                    p["activate"] = True
-
-
-        
-                # Szürkére vagy pirosra kattinthatsz
-                if p["color"] != (200,200,200) and target != "red":
-                    continue
-
-                if p["color"] == (0,0,255):
-                    p["activate"] = True  # itt a helyes értékadás
-                    print(p["label"], "activated")
-                    
-
-
-
-
-
-
-                    # szomszédok ID
-                    neighbor_ids = get_neighbors_ids(p)
-                    print(f"A {p['label']} szomszédainak ID-i: {neighbor_ids}")
-
-                    click_count += 1
-                    break  # csak egy pontot kattintunk egyszerre
+    # --- Kék pontok korlátozása ---
+    blue_nodes = [n for n in nodes if n["color"] == (0,0,255)]
+    if len(blue_nodes) > max_blue:
+        for n in blue_nodes[max_blue:]:
+            n["color"] = (200,200,200)
 
     # --- Rajzolás ---
-    screen.fill((0, 0, 0))
-
-    # vonalak
+    screen.fill((0,0,0))
     for start, end in lines:
         pygame.draw.line(screen, line_color, start, end, line_width)
-
-    # pontok
-    for p in points:
-        pygame.draw.circle(screen, p["color"], p["pos"], 15)
-        txt = f"{p['label']}"
-        label_surface = font.render(txt, True, (255, 255, 255))
-        label_rect = label_surface.get_rect(center=(p["pos"][0], p["pos"][1] - 20))
+    for node in nodes:
+        pygame.draw.circle(screen, node["color"], node["pos"], node["point_radius"])
+        txt = f"{node['label']} ({node['ertek']})"
+        label_surface = font.render(txt, True, (255,255,255))
+        label_rect = label_surface.get_rect(center=(node["pos"][0], node["pos"][1]-node["point_radius"]-10))
         screen.blit(label_surface, label_rect)
-
-    # click counter
-    counter_surface = font.render(f"Kattintások: {click_count}", True, (255, 255, 0))
-    screen.blit(counter_surface, (10, 10))
 
     pygame.display.flip()
 

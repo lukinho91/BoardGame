@@ -143,6 +143,7 @@ while running:
                     # Ha kék pontra kattintottál → aktiválás
                     if p["color"] == (0,0,255):
                         active_blue = p
+                        p["color"] = (0,150,255)  # vizuális visszajelzés
                         print("Kék aktiválva:", p["label"])
                         break  # ne lépjen, csak aktiválódjon
 
