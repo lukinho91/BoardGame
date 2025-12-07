@@ -6,7 +6,7 @@ import random
 pygame.init()
 
 # --- Ablak ---
-screen = pygame.display.set_mode((700, 700))
+screen = pygame.display.set_mode((1000, 700))
 pygame.display.set_caption("Kattintható pontok – piros + 3 kék")
 
 # --- Beállítások ---
@@ -185,7 +185,7 @@ while running:
     # Pontok
     for p in points:
         pygame.draw.circle(screen, p["color"], p["pos"], p["point_radius"])
-        txt = f"{p['label']} ({p['ertek']}) st:{p['status']}"
+        txt = f"{p['label']} ({p['ertek']}"
         label_surface = font.render(txt, True, (255,255,255))
         label_rect = label_surface.get_rect(center=(p["pos"][0], p["pos"][1]-p["point_radius"]-10))
         screen.blit(label_surface, label_rect)
