@@ -27,6 +27,7 @@ points = [
     {"pos": [600, 300], "color": (200, 200, 200), "label": "Újpest", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
     {"pos": [50, 500], "color": (200, 200, 200), "label": "Kispest", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
     {"pos": [200, 400], "color": (200, 200, 200), "label": "Puskás", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
+    {"pos": [350, 500], "color": (200, 200, 200), "label": "Rendőrség", "ertek": 0, "status": 0, "goal": 4, "point_radius": 15, "activate": False},
 ]
 
 # --- Vonalak ---
@@ -46,6 +47,7 @@ lines = [
     (points[10]["pos"], points[9]["pos"]),
     (points[7]["pos"], points[8]["pos"]),
     (points[7]["pos"], points[5]["pos"]),
+    (points[11]["pos"], points[5]["pos"]),
 ]
 
 # --- Segédfüggvény: szomszéd vizsgálat ---
@@ -57,16 +59,41 @@ def is_neighbor(p1, p2):
             return True
     return False
 
-# --- Segédfüggvény: harmadik kék létrehozása ---
 def add_third_blue_if_needed(p):
-    if p and p["ertek"] > 0:
-        gray_points = [x for x in points if x["color"] == (200, 200, 200)]
-        if gray_points:
-            extra_blue = random.choice(gray_points)
-            extra_blue["color"] = (0, 0, 255)
-            return extra_blue
-    return None
+    global extra_blue_used, blue3_point
 
+    # Ha már egyszer létrejött → SOHA TÖBBET nem csinál új kéket
+    if extra_blue_used:
+        return None
+
+    # csak akkor hozunk létre új kéket, ha p pontgyűjtést csinált
+    if p and p["ertek"] > 0:
+
+        # összes aktuális kék (Csak 2 lehet még itt!)
+        current_blues = [x for x in points if x["color"] == (0, 0, 255)]
+
+        # Ha már 3 kék lenne → ne csináljunk újat (biztonság)
+        if len(current_blues) >= 3:
+            extra_blue_used = True
+            return None
+
+        # keresünk szürke pontot
+        gray_points = [x for x in points if x["color"] == (200,200,200)]
+        if not gray_points:
+            return None
+
+        # kiválasztjuk az extra kéket
+        extra_blue = points[11]  # mindig a "Rendőrség" pont lesz]
+        extra_blue["color"] = (0,0,255)
+        blue3_point = extra_blue
+
+        # innentől nem lehet több extra kék
+        extra_blue_used = True
+
+        print(">>> HARMADIK KÉK LÉTREJÖTT:", extra_blue["label"])
+        return extra_blue
+
+    return None
 # --- Játékállapot ---
 click_count = 0
 red_point = None
@@ -74,9 +101,16 @@ blue1_point = None
 blue2_point = None
 blue3_point = None
 active_blue = None  # aktivált kék, csak ez léphet
+excluded_index = 10  # <-- ezt a pontot nem érintheti a véletlen
+extra_blue_used = False  # jelzi, hogy létrejött-e már a 3. kék
 
 # --- Véletlenszerűen elhelyezett első 2 kék ---
-initial_gray_points = [p for p in points if p["color"] == (200,200,200)]
+
+initial_gray_points = [
+    p for i, p in enumerate(points)
+    if p["color"] == (200, 200, 200) and i != excluded_index
+]
+
 if len(initial_gray_points) >= 2:
     blue1_point = random.choice(initial_gray_points)
     blue1_point["color"] = (0,0,255)
