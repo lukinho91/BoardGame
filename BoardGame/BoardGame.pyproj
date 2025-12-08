@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>d39d16ea-2dac-4708-bc2a-d7026103e2e2</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>BoardGame.py</StartupFile>
+    <StartupFile>BoardGame_canvas.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -22,7 +22,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="BoardGame.py" />
-    <Compile Include="module1.py" />
+    <Compile Include="queries.py" />
+    <Compile Include="BoardGame_canvas.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

@@ -105,7 +105,7 @@ blue1 = random.choice(initial_gray_points); blue1["color"]=(0,0,255); initial_gr
 blue2 = random.choice(initial_gray_points); blue2["color"]=(0,0,255); initial_gray_points.remove(blue2)
 blue3 = None
 extra_blue_used = False
-goal = 4
+goal = 2
 
 # ========================
 #      JÁTÉKÁLLAPOT
