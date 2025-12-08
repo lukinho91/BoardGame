@@ -9,7 +9,6 @@ import sqlite3
 conn = sqlite3.connect("game.db")
 c = conn.cursor()
 
-# Létrehozás, törlés a teszteléshez
 c.execute("DROP TABLE IF EXISTS red_positions")
 c.execute("""
 CREATE TABLE red_positions (
@@ -79,7 +78,7 @@ def is_neighbor(p1, p2):
 def add_third_blue(p):
     global blue3, extra_blue_used
     if extra_blue_used or blue3 is not None: return
-    if p["ertek"]>0:
+    if p["ertek"]>0 and p["ertek"] != goal:
         blue3 = points[11]
         blue3["color"]=(0,0,255)
         extra_blue_used=True
@@ -95,74 +94,100 @@ def draw_points(canvas):
                            fill=color_to_hex(p["color"]), outline="black")
         canvas.create_text(x+p["point_radius"], y-5, text=f"{p['label']} ({p['ertek']})", fill="green")
 
-# ========================
-#       ESEMÉNY
-# ========================
-def on_click(event):
-    global click_count, red_point, active_blue
-    mouse_pos = (event.x, event.y)
-    target = "red" if click_count%2==0 else "blue"
+def refresh():
+    draw_points(canvas1)
+    draw_points(canvas2)
+    window1.after(50, refresh)
 
+def update_labels():
+    text = "Következő: Piros" if click_count % 2 == 0 else "Következő: Kék"
+    label_red.config(text=text)
+    label_blue.config(text=text)
+
+# ========================
+#       ESEMÉNYKEZELŐK
+# ========================
+def on_click_red(event):
+    global click_count, red_point
+    if click_count % 2 != 0:
+        return
+
+    mouse_pos = (event.x, event.y)
     for p in points:
         px, py = p["pos"]
-        distance = math.hypot(mouse_pos[0]-px-p["point_radius"], mouse_pos[1]-py-p["point_radius"])
-        if distance > p["point_radius"]: 
+        center = (px+p["point_radius"], py+p["point_radius"])
+        distance = math.hypot(mouse_pos[0]-center[0], mouse_pos[1]-center[1])
+        if distance > p["point_radius"]:
             continue
+        if red_point and p!=red_point and not is_neighbor(red_point,p):
+            continue
+        if red_point and p!=red_point:
+            red_point["color"] = (200,200,200)
+        red_point = p
+        red_point["color"] = (255,0,0)
+        if p.get("status",0)==1:
+            p["ertek"] += 1
+            if p["ertek"] >= goal:
+                p["point_radius"] = 25
+        p["status"]=1
+        click_count += 1
+        # mentés db-be
+        c.execute("INSERT INTO red_positions (x, y, ertek) VALUES (?,?,?)",
+                  (p["pos"][0], p["pos"][1], p["ertek"]))
+        conn.commit()
+        update_labels()  # <<< frissítés itt
+        print(f"Pirossal lépett: {p['label']} ({p['ertek']} {p['pos']})")
+        break
 
-        # PIROS
-        if target=="red":
-            if red_point and p!=red_point and not is_neighbor(red_point,p): continue
-            if red_point and p!=red_point: red_point["color"]=(200,200,200)
-            red_point = p
-            red_point["color"]=(255,0,0)
-            if p.get("status",0)==1:
-                p["ertek"] += 1
-                if p["ertek"] >= goal:
-                    p["point_radius"] = 25
-            p["status"]=1
-            click_count +=1
+def on_click_blue(event):
+    global click_count, active_blue
+    if click_count % 2 != 1:
+        return
 
-            # Mentés az adatbázisba
-            c.execute("INSERT INTO red_positions (x, y, ertek) VALUES (?,?,?)",
-                      (p["pos"][0], p["pos"][1], p["ertek"]))
-            conn.commit()
-
-            print (f"Atuális pozíció: {p['label']} ({p['ertek']} {p['pos']})")
-
-        # KÉK
-        else:
-            if p["color"]==(0,0,255):
-                active_blue = p; p["color"]=(0,150,255); break
-            if active_blue is None: continue
-            if not is_neighbor(active_blue,p): continue
-            active_blue["color"]=(200,200,200)
-            add_third_blue(p)
-            p["color"]=(0,0,255)
+    mouse_pos = (event.x, event.y)
+    for p in points:
+        px, py = p["pos"]
+        center = (px+p["point_radius"], py+p["point_radius"])
+        distance = math.hypot(mouse_pos[0]-center[0], mouse_pos[1]-center[1])
+        if distance > p["point_radius"]:
+            continue
+        if p["color"] == (0,0,255):
             active_blue = p
-            click_count +=1
+            p["color"] = (0,150,255)
+            break
+        if active_blue is None:
+            continue
+        if not is_neighbor(active_blue,p):
+            continue
+        active_blue["color"] = (200,200,200)
+        add_third_blue(p)
+        p["color"] = (0,0,255)
+        active_blue = p
+        click_count += 1
+        update_labels()  # <<< frissítés itt
         break
 
 # ========================
 #       ABLAKOK
 # ========================
 window1 = tk.Tk()
-window1.title("Pálya 1")
+window1.title("Piros-1")
+label_red = tk.Label(window1, text="Következő: Piros" if click_count % 2 == 0 else "Következő: Kék", font=("Arial",14))
+label_red.pack()
 canvas1 = tk.Canvas(window1, width=700, height=700, bg="white")
 canvas1.pack()
 
 window2 = tk.Toplevel(window1)
-window2.title("Pálya 2")
+window2.title("Kék-2")
+label_blue = tk.Label(window2, text="Következő: Piros" if click_count % 2 == 0 else "Következő: Kék", font=("Arial",14))
+label_blue.pack()
 canvas2 = tk.Canvas(window2, width=700, height=700, bg="white")
 canvas2.pack()
 
-canvas1.bind("<Button-1>", on_click)
-canvas2.bind("<Button-1>", on_click)
-
-def refresh():
-    draw_points(canvas1)
-    draw_points(canvas2)
-    window1.after(50, refresh)
+canvas1.bind("<Button-1>", on_click_red)
+canvas2.bind("<Button-1>", on_click_blue)
 
 refresh()
+
 window1.mainloop()
 conn.close()
