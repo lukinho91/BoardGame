@@ -1,6 +1,25 @@
 import tkinter as tk
 import math
 import random
+import sqlite3
+
+# ========================
+#       ADATBÁZIS
+# ========================
+conn = sqlite3.connect("game.db")
+c = conn.cursor()
+
+# Létrehozás, törlés a teszteléshez
+c.execute("DROP TABLE IF EXISTS red_positions")
+c.execute("""
+CREATE TABLE red_positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    x INTEGER,
+    y INTEGER,
+    ertek INTEGER
+)
+""")
+conn.commit()
 
 # ========================
 #       PONTOK
@@ -103,6 +122,13 @@ def on_click(event):
             p["status"]=1
             click_count +=1
 
+            # Mentés az adatbázisba
+            c.execute("INSERT INTO red_positions (x, y, ertek) VALUES (?,?,?)",
+                      (p["pos"][0], p["pos"][1], p["ertek"]))
+            conn.commit()
+
+            print (f"Atuális pozíció: {p['label']} ({p['ertek']} {p['pos']})")
+
         # KÉK
         else:
             if p["color"]==(0,0,255):
@@ -139,3 +165,4 @@ def refresh():
 
 refresh()
 window1.mainloop()
+conn.close()
