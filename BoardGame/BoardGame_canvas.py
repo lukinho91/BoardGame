@@ -75,6 +75,11 @@ def is_neighbor(p1, p2):
             return True
     return False
 
+
+def get_red_positions_from_db():
+    c.execute("SELECT x, y, ertek FROM red_positions")
+    return [{"pos":[x, y], "ertek":ertek} for x, y, ertek in c.fetchall()]
+
 def add_third_blue(p):
     global blue3, extra_blue_used
     if extra_blue_used or blue3 is not None: return
@@ -84,15 +89,33 @@ def add_third_blue(p):
         extra_blue_used=True
         print("Harmadik kék létrejött:", blue3["label"])
 
-def draw_points(canvas):
+def draw_points(canvas, use_db_for_red=False):
     canvas.delete("all")
+    
+    # vonalak rajzolása
     for start, end in lines:
         canvas.create_line(start[0]+15, start[1]+15, end[0]+15, end[1]+15, fill="green", width=2)
+    
+    # ha DB-t használunk a piroshoz, lekérjük
+    red_positions = get_red_positions_from_db() if use_db_for_red else []
+    
     for p in points:
         x, y = p["pos"]
-        canvas.create_oval(x, y, x+p["point_radius"]*2, y+p["point_radius"]*2,
-                           fill=color_to_hex(p["color"]), outline="black")
-        canvas.create_text(x+p["point_radius"], y-5, text=f"{p['label']} ({p['ertek']})", fill="green")
+        radius = p["point_radius"]
+        color = p["color"]
+        
+        # DB alapján felülírjuk a piros pont színét és értékét
+        if use_db_for_red:
+            for r in red_positions:
+                if r["pos"] == p["pos"]:
+                    color = (255,0,0)
+                    p["ertek"] = r["ertek"]
+                    if p["ertek"] >= goal:
+                        radius = 25
+        
+        canvas.create_oval(x, y, x+radius*2, y+radius*2,
+                           fill=color_to_hex(color), outline="black")
+        canvas.create_text(x+radius, y-5, text=f"{p['label']} ({p['ertek']})", fill="green")
 
 def refresh():
     draw_points(canvas1)
@@ -165,6 +188,7 @@ def on_click_blue(event):
         active_blue = p
         click_count += 1
         update_labels()  # <<< frissítés itt
+        print(get_red_positions_from_db())
         break
 
 # ========================
