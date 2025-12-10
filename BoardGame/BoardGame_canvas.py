@@ -108,6 +108,19 @@ def get_red_positions_from_db():
         return [{"pos": [x,y], "ertek": ertek}]
     return []
 
+def get_penultimate_red_from_db():
+    c.execute("""
+        SELECT x, y, ertek
+        FROM red_positions
+        ORDER BY id DESC
+        LIMIT 1 OFFSET 1
+    """)
+    row = c.fetchone()
+    if row:
+        x, y, ertek = row
+        return [{"pos": [x, y], "ertek": ertek}]
+    return []
+
 
 # ========================
 #  PIROS MEGJELENÍTÉS
@@ -155,25 +168,41 @@ def draw_red(canvas):
 def draw_blue(canvas):
     canvas.delete("all")
 
+    # vonalak
     for start, end in lines:
         canvas.create_line(start[0], start[1], end[0], end[1], fill="green", width=2)
+
+    # utolsó előtti piros betöltése DB-ből
+    red_pos = get_penultimate_red_from_db()
+    red_dict = {tuple(r["pos"]): r["ertek"] for r in red_pos}
 
     for p in points:
         x, y = p["pos"]
         radius = p["point_radius"]
         color = p["color"]
 
-        # csak kékek jelenjenek meg kékként
-        if color == (0,0,255):
-            pass
-        elif color == (0,150,255):  # aktív kék
-            radius += 5
-        else:
-            color = (200,200,200)  # minden más szürke
+        # ----- PIROS ELŐZŐ LÉPÉS -----
+        if tuple(p["pos"]) in red_dict:
+            color = (255,0,0)
+            radius = 25 if p["ertek"] >= goal else radius
 
-        canvas.create_oval(x-radius, y-radius, x+radius, y+radius,
-                           fill=color_to_hex(color), outline="black")
-        canvas.create_text(x, y-radius-5, text=f"{p['label']} ({p['ertek']})", fill="green")
+        # ----- KÉKEK -----
+        elif color == (0,150,255):     # aktív kék
+            radius += 5
+        elif color == (0,0,255):       # sima kék
+            pass
+        else:
+            color = (200,200,200)      # szürke pont
+
+        canvas.create_oval(
+            x-radius, y-radius, x+radius, y+radius,
+            fill=color_to_hex(color), outline="black"
+        )
+        canvas.create_text(
+            x, y-radius-5,
+            text=f"{p['label']} ({p['ertek']})",
+            fill="green"
+        )
 
 
 # ========================
