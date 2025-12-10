@@ -165,14 +165,14 @@ def draw_red(canvas):
 # ========================
 #  KÉK MEGJELENÍTÉS
 # ========================
-def draw_blue(canvas):
-    canvas.delete("all")
+def draw_blue(canvas):  # Kék pontok kirajzolása
+    canvas.delete("all")  # Canvas törlése
 
-    # vonalak
+    # vonalak kirajzolása
     for start, end in lines:
         canvas.create_line(start[0], start[1], end[0], end[1], fill="green", width=2)
 
-    # utolsó előtti piros betöltése DB-ből
+    # utolsó előtti piros betöltése
     red_pos = get_penultimate_red_from_db()
     red_dict = {tuple(r["pos"]): r["ertek"] for r in red_pos}
 
@@ -181,18 +181,17 @@ def draw_blue(canvas):
         radius = p["point_radius"]
         color = p["color"]
 
-        # ----- PIROS ELŐZŐ LÉPÉS -----
-        if tuple(p["pos"]) in red_dict:
-            color = (255,0,0)
-            radius = 25 if p["ertek"] >= goal else radius
-
-        # ----- KÉKEK -----
-        elif color == (0,150,255):     # aktív kék
-            radius += 5
-        elif color == (0,0,255):       # sima kék
-            pass
+        # ----- KÉKEK ELŐNYBEN -----
+        if color == (0,0,255) or color == (0,150,255):  # Ha kék pont, ne fessük pirosra
+            if color == (0,150,255):
+                radius += 5  # Aktív kék nagyobb kör
         else:
-            color = (200,200,200)      # szürke pont
+            # Csak szürke pontok esetén festjük pirosra DB alapján
+            if tuple(p["pos"]) in red_dict:
+                color = (255,0,0)
+                radius = 25 if p["ertek"] >= goal else radius
+            else:
+                color = (200,200,200)  # Szürke pont
 
         canvas.create_oval(
             x-radius, y-radius, x+radius, y+radius,
@@ -203,7 +202,6 @@ def draw_blue(canvas):
             text=f"{p['label']} ({p['ertek']})",
             fill="green"
         )
-
 
 # ========================
 #  REFRESH
