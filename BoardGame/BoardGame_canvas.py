@@ -20,6 +20,10 @@ CREATE TABLE red_positions (
 """)
 conn.commit()
 
+# Fix első sor beszúrása
+c.execute("INSERT INTO red_positions (x, y, ertek) VALUES (?, ?, ?)", (70, 130, 0))
+conn.commit()
+
 # ========================
 #       PONTOK
 # ========================
@@ -61,8 +65,9 @@ initial_gray_points = [p for i,p in enumerate(points) if p["color"]==(200,200,20
 blue1 = random.choice(initial_gray_points); blue1["color"]=(0,0,255); initial_gray_points.remove(blue1)
 blue2 = random.choice(initial_gray_points); blue2["color"]=(0,0,255); initial_gray_points.remove(blue2)
 
+
 # ========================
-#       SEGÉDFÜGGVÉNYEK
+# SEGÉDFÜGGVÉNYEK
 # ========================
 def color_to_hex(c):
     if isinstance(c, tuple):
@@ -75,11 +80,6 @@ def is_neighbor(p1, p2):
             return True
     return False
 
-
-def get_red_positions_from_db():
-    c.execute("SELECT x, y, ertek FROM red_positions")
-    return [{"pos":[x, y], "ertek":ertek} for x, y, ertek in c.fetchall()]
-
 def add_third_blue(p):
     global blue3, extra_blue_used
     if extra_blue_used or blue3 is not None: return
@@ -87,39 +87,94 @@ def add_third_blue(p):
         blue3 = points[11]
         blue3["color"]=(0,0,255)
         extra_blue_used=True
-        print("Harmadik kék létrejött:", blue3["label"])
 
-def draw_points(canvas, use_db_for_red=False):
+def insert_red_position(p):
+    x, y = p["pos"]
+    ertek = p["ertek"]
+    c.execute("INSERT INTO red_positions (x, y, ertek) VALUES (?, ?, ?)", (x, y, ertek))
+    conn.commit()
+
+def get_red_positions_from_db():
+    c.execute("""
+        SELECT x, y, ertek
+        FROM red_positions
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+
+    row = c.fetchone()
+    if row:
+        x, y, ertek = row
+        return [{"pos": [x,y], "ertek": ertek}]
+    return []
+
+
+# ========================
+#  PIROS MEGJELENÍTÉS
+# ========================
+def draw_red(canvas):
     canvas.delete("all")
-    
-    # vonalak rajzolása
+
+    # vonalak
     for start, end in lines:
-        canvas.create_line(start[0]+15, start[1]+15, end[0]+15, end[1]+15, fill="green", width=2)
-    
-    # ha DB-t használunk a piroshoz, lekérjük
-    red_positions = get_red_positions_from_db() if use_db_for_red else []
-    
+        canvas.create_line(start[0], start[1], end[0], end[1], fill="green", width=2)
+
+    # legutóbbi piros
+    red_pos = get_red_positions_from_db()
+    red_dict = {tuple(r["pos"]): r["ertek"] for r in red_pos}
+
     for p in points:
         x, y = p["pos"]
         radius = p["point_radius"]
         color = p["color"]
-        
-        # DB alapján felülírjuk a piros pont színét és értékét
-        if use_db_for_red:
-            for r in red_positions:
-                if r["pos"] == p["pos"]:
-                    color = (255,0,0)
-                    p["ertek"] = r["ertek"]
-                    if p["ertek"] >= goal:
-                        radius = 25
-        
-        canvas.create_oval(x, y, x+radius*2, y+radius*2,
-                           fill=color_to_hex(color), outline="black")
-        canvas.create_text(x+radius, y-5, text=f"{p['label']} ({p['ertek']})", fill="green")
 
+        # Csak a DB szerinti piros legyen piros
+        if tuple(p["pos"]) in red_dict:
+            color = (255,0,0)
+            p["ertek"] = red_dict[tuple(p["pos"])]
+            if p["ertek"] >= goal:
+                radius = 25
+        else:
+            color = (200,200,200)  # minden más szürke
+
+        canvas.create_oval(x-radius, y-radius, x+radius, y+radius,
+                           fill=color_to_hex(color), outline="black")
+        canvas.create_text(x, y-radius-5, text=f"{p['label']} ({p['ertek']})", fill="green")
+
+
+# ========================
+#  KÉK MEGJELENÍTÉS
+# ========================
+def draw_blue(canvas):
+    canvas.delete("all")
+
+    for start, end in lines:
+        canvas.create_line(start[0], start[1], end[0], end[1], fill="green", width=2)
+
+    for p in points:
+        x, y = p["pos"]
+        radius = p["point_radius"]
+        color = p["color"]
+
+        # csak kékek jelenjenek meg kékként
+        if color == (0,0,255):
+            pass
+        elif color == (0,150,255):  # aktív kék
+            radius += 5
+        else:
+            color = (200,200,200)  # minden más szürke
+
+        canvas.create_oval(x-radius, y-radius, x+radius, y+radius,
+                           fill=color_to_hex(color), outline="black")
+        canvas.create_text(x, y-radius-5, text=f"{p['label']} ({p['ertek']})", fill="green")
+
+
+# ========================
+#  REFRESH
+# ========================
 def refresh():
-    draw_points(canvas1)
-    draw_points(canvas2)
+    draw_red(canvas1)
+    draw_blue(canvas2)
     window1.after(50, refresh)
 
 def update_labels():
@@ -127,91 +182,114 @@ def update_labels():
     label_red.config(text=text)
     label_blue.config(text=text)
 
+
 # ========================
-#       ESEMÉNYKEZELŐK
+#       ESEMÉNYEK
 # ========================
 def on_click_red(event):
     global click_count, red_point
+
     if click_count % 2 != 0:
         return
 
     mouse_pos = (event.x, event.y)
+
     for p in points:
         px, py = p["pos"]
-        center = (px+p["point_radius"], py+p["point_radius"])
-        distance = math.hypot(mouse_pos[0]-center[0], mouse_pos[1]-center[1])
+        center = (px, py)
+        distance = math.hypot(mouse_pos[0]-px, mouse_pos[1]-py)
         if distance > p["point_radius"]:
             continue
+
         if red_point and p!=red_point and not is_neighbor(red_point,p):
             continue
+
         if red_point and p!=red_point:
             red_point["color"] = (200,200,200)
+
         red_point = p
         red_point["color"] = (255,0,0)
+
         if p.get("status",0)==1:
             p["ertek"] += 1
             if p["ertek"] >= goal:
                 p["point_radius"] = 25
+
         p["status"]=1
         click_count += 1
-        # mentés db-be
-        c.execute("INSERT INTO red_positions (x, y, ertek) VALUES (?,?,?)",
-                  (p["pos"][0], p["pos"][1], p["ertek"]))
-        conn.commit()
-        update_labels()  # <<< frissítés itt
-        print(f"Pirossal lépett: {p['label']} ({p['ertek']} {p['pos']})")
+
+        update_labels()
+
+        # DB mentés
+        insert_red_position(p)
+
         break
+
 
 def on_click_blue(event):
     global click_count, active_blue
+    
     if click_count % 2 != 1:
         return
 
     mouse_pos = (event.x, event.y)
+
     for p in points:
         px, py = p["pos"]
-        center = (px+p["point_radius"], py+p["point_radius"])
-        distance = math.hypot(mouse_pos[0]-center[0], mouse_pos[1]-center[1])
+        center = (px, py)
+        distance = math.hypot(mouse_pos[0]-px, mouse_pos[1]-py)
         if distance > p["point_radius"]:
             continue
+
+        # kék kiválasztása
         if p["color"] == (0,0,255):
             active_blue = p
             p["color"] = (0,150,255)
             break
+
         if active_blue is None:
             continue
+
         if not is_neighbor(active_blue,p):
             continue
+
         active_blue["color"] = (200,200,200)
         add_third_blue(p)
+
         p["color"] = (0,0,255)
         active_blue = p
         click_count += 1
-        update_labels()  # <<< frissítés itt
-        print(get_red_positions_from_db())
+
+        update_labels()
         break
+
 
 # ========================
 #       ABLAKOK
 # ========================
 window1 = tk.Tk()
 window1.title("Piros-1")
-label_red = tk.Label(window1, text="Következő: Piros" if click_count % 2 == 0 else "Következő: Kék", font=("Arial",14))
+
+label_red = tk.Label(window1, text="Következő: Piros", font=("Arial",14))
 label_red.pack()
+
 canvas1 = tk.Canvas(window1, width=700, height=700, bg="white")
 canvas1.pack()
 
+
 window2 = tk.Toplevel(window1)
 window2.title("Kék-2")
-label_blue = tk.Label(window2, text="Következő: Piros" if click_count % 2 == 0 else "Következő: Kék", font=("Arial",14))
+
+label_blue = tk.Label(window2, text="Következő: Piros", font=("Arial",14))
 label_blue.pack()
+
 canvas2 = tk.Canvas(window2, width=700, height=700, bg="white")
 canvas2.pack()
+
 
 canvas1.bind("<Button-1>", on_click_red)
 canvas2.bind("<Button-1>", on_click_blue)
 
 refresh()
-
 window1.mainloop()
 conn.close()
