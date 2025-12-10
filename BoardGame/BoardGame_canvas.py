@@ -126,20 +126,27 @@ def draw_red(canvas):
     for p in points:
         x, y = p["pos"]
         radius = p["point_radius"]
-        color = p["color"]
 
-        # Csak a DB szerinti piros legyen piros
+        # --- SZÍNKEZELÉS ---  
+        color = p["color"]   # EREDETI SZÍN (kék is megmarad!)
+
+        # Ha ez a pont a DB szerinti piros → átfestjük pirosra
         if tuple(p["pos"]) in red_dict:
             color = (255,0,0)
             p["ertek"] = red_dict[tuple(p["pos"])]
             if p["ertek"] >= goal:
                 radius = 25
-        else:
-            color = (200,200,200)  # minden más szürke
 
-        canvas.create_oval(x-radius, y-radius, x+radius, y+radius,
-                           fill=color_to_hex(color), outline="black")
-        canvas.create_text(x, y-radius-5, text=f"{p['label']} ({p['ertek']})", fill="green")
+        # --- KÖR RAJZOLÁS ---
+        canvas.create_oval(
+            x-radius, y-radius, x+radius, y+radius,
+            fill=color_to_hex(color), outline="black"
+        )
+        canvas.create_text(
+            x, y-radius-5,
+            text=f"{p['label']} ({p['ertek']})",
+            fill="green"
+        )
 
 
 # ========================
