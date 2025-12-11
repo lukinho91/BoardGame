@@ -122,7 +122,6 @@ def add_police_line():
         return
 
 
-
 def add_third_blue(p):
     global blue3, extra_blue_used
     if extra_blue_used or blue3 is not None: return
@@ -359,7 +358,6 @@ def on_click_blue(event):
 
     for p in points:
         px, py = p["pos"]
-        center = (px, py)
         distance = math.hypot(mouse_pos[0]-px, mouse_pos[1]-py)
         if distance > p["point_radius"]:
             continue
@@ -373,8 +371,17 @@ def on_click_blue(event):
         if active_blue is None:
             continue
 
-        if not is_neighbor(active_blue,p):
+        if not is_neighbor(active_blue, p):
             continue
+
+        #Kék rálép a piros jelenlegi pozíciójára → kék nyer
+        last_red = get_red_positions_from_db()
+        if last_red:
+            red_x, red_y = last_red[0]["pos"]
+            if p["pos"][0] == red_x and p["pos"][1] == red_y:
+                messagebox.showinfo("Játék vége", "A Kék nyert!!", parent=window1)
+                messagebox.showinfo("Játék vége", "A Kék nyert!!", parent=window2)
+                return
 
         active_blue["color"] = (200,200,200)
         add_third_blue(p)
@@ -382,12 +389,9 @@ def on_click_blue(event):
         p["color"] = (0,0,255)
         active_blue = p
         click_count += 1
-       
-
 
         update_labels()
         break
-
 
 
 # ========================
