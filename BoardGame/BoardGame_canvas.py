@@ -21,9 +21,7 @@ CREATE TABLE red_positions (
 """)
 conn.commit()
 
-# Fix első sor beszúrása
-c.execute("INSERT INTO red_positions (x, y, ertek) VALUES (?, ?, ?)", (70, 130, 0))
-conn.commit()
+
 
 # ========================
 #       PONTOK
