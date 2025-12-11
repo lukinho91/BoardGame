@@ -1,0 +1,8 @@
+- A játék kettő ablakon megy.
+- A piros és a kék felváltva lép különböző ablakokban. A piros ablakban csak a piros tud lépni, a kékben csak a kék.-
+- A piros játékos mindig látja a kék lépéseit a saját ablakában, a kék mindig csak a piros utolsó előtti-előtti lépését látja (-2 kör).
+- Csak a játékosok csak a szomszédos mezőkre léphetnek. A kék játékos bármelyik körrel léphet, de előtt ki kell választania melyikkel lép.
+- A piros tud a saját pozíciójára klikkelni és pontokat gyűjteni, a kék nem tud ilyet.
+- A piros célja, hogy a megadott körökön végrehajtsa az akcióit (legalább 2 körön keresztül ugyanott tartózkodjon). A kék célja, hogy elfogja a pirosát -> ne tudjon a piros sehova se lépni. 
+- Ha a piros 2 körön keresztül ugyanott tartózkodik -> legalább egyszer saját magára klikkel a user, akkor az az állomás teljesítettnek tekinthető.
+- Ha a kék olyan mezőre lép ahol a piros már elkezdett egy küldetést de nem tudta befejezni akkor a kék automatikusan kap egy harmadik bábut.

@@ -50,7 +50,8 @@ lines = [
     (points[4]["pos"], points[10]["pos"]), (points[5]["pos"], points[10]["pos"]),
     (points[4]["pos"], points[3]["pos"]), (points[2]["pos"], points[9]["pos"]),
     (points[10]["pos"], points[9]["pos"]), (points[7]["pos"], points[8]["pos"]),
-    (points[7]["pos"], points[5]["pos"]), (points[11]["pos"], points[5]["pos"])
+    (points[7]["pos"], points[5]["pos"]), 
+    #(points[11]["pos"], points[5]["pos"])
 ]
 
 goal = 2
@@ -60,15 +61,39 @@ active_blue = None
 blue3 = None
 extra_blue_used = False
 
-# Kezdeti kéket kiválasztjuk
-initial_gray_points = [p for i,p in enumerate(points) if p["color"]==(200,200,200) and i!=10]
-blue1 = random.choice(initial_gray_points); blue1["color"]=(0,0,255); initial_gray_points.remove(blue1)
-blue2 = random.choice(initial_gray_points); blue2["color"]=(0,0,255); initial_gray_points.remove(blue2)
+# Kezdeti szürke pontok kivétele, kivéve a 12. elemet (index 11)
+initial_gray_points = [p for i, p in enumerate(points) if p["color"] == (200,200,200) and i != 11]
+
+# Két különböző kék pont kiválasztása
+blue1, blue2 = random.sample(initial_gray_points, 2)
+
+blue1["color"] = (0, 0, 255)
+blue2["color"] = (0, 0, 255)
 
 
 # ========================
 # SEGÉDFÜGGVÉNYEK
 # ========================
+
+def show_rules():
+    rules_window = tk.Toplevel()
+    rules_window.title("Játékszabályok")
+    rules_window.geometry("500x400")
+
+    text = tk.Text(rules_window, wrap="word", font=("Arial", 12))
+    text.pack(expand=True, fill="both")
+
+    try:
+        with open("szabalyok.txt", "r", encoding="utf-8") as f:
+            rules = f.read()
+    except FileNotFoundError:
+        rules = "Nem található a rules.txt fájl!"
+
+    text.insert("1.0", rules)
+    text.config(state="disabled")
+
+
+
 def color_to_hex(c):
     if isinstance(c, tuple):
         return '#{:02x}{:02x}{:02x}'.format(*c)
@@ -80,13 +105,23 @@ def is_neighbor(p1, p2):
             return True
     return False
 
+
+def add_police_line():
+    if blue3 is not None:
+        lines.append((points[11]["pos"], points[5]["pos"]))
+        return
+
+
+
 def add_third_blue(p):
     global blue3, extra_blue_used
     if extra_blue_used or blue3 is not None: return
     if p["ertek"]>0 and p["ertek"] != goal:
-        blue3 = points[11]
+        blue3 =points[11]
         blue3["color"]=(0,0,255)
         extra_blue_used=True
+        add_police_line()
+
 
 def insert_red_position(p):
     x, y = p["pos"]
@@ -113,7 +148,7 @@ def get_penultimate_red_from_db():
         SELECT x, y, ertek
         FROM red_positions
         ORDER BY id DESC
-        LIMIT 1 OFFSET 1
+        LIMIT 1 OFFSET 2
     """)
     row = c.fetchone()
     if row:
@@ -156,7 +191,7 @@ def draw_red(canvas):
             fill=color_to_hex(color), outline="black"
         )
         canvas.create_text(
-            x, y-radius-5,
+            x, y-radius-10,
             text=f"{p['label']} ({p['ertek']})",
             fill="green"
         )
@@ -189,7 +224,7 @@ def draw_blue(canvas):  # Kék pontok kirajzolása
             # Csak szürke pontok esetén festjük pirosra DB alapján
             if tuple(p["pos"]) in red_dict:
                 color = (255,0,0)
-                radius = 25 if p["ertek"] >= goal else radius
+                #radius = 25 if p["ertek"] >= goal else radius
             else:
                 color = (200,200,200)  # Szürke pont
 
@@ -198,8 +233,8 @@ def draw_blue(canvas):  # Kék pontok kirajzolása
             fill=color_to_hex(color), outline="black"
         )
         canvas.create_text(
-            x, y-radius-5,
-            text=f"{p['label']} ({p['ertek']})",
+            x, y-radius-10,
+            text=f"{p['label']}",
             fill="green"
         )
 
@@ -215,6 +250,7 @@ def update_labels():
     text = "Következő: Piros" if click_count % 2 == 0 else "Következő: Kék"
     label_red.config(text=text)
     label_blue.config(text=text)
+   
 
 
 # ========================
@@ -307,6 +343,9 @@ window1.title("Piros-1")
 label_red = tk.Label(window1, text="Következő: Piros", font=("Arial",14))
 label_red.pack()
 
+bomb_button_red = tk.Button(window1, text="Játékszabályok", font=("Arial",12), command=show_rules)
+bomb_button_red.pack()
+
 canvas1 = tk.Canvas(window1, width=700, height=700, bg="white")
 canvas1.pack()
 
@@ -315,7 +354,11 @@ window2 = tk.Toplevel(window1)
 window2.title("Kék-2")
 
 label_blue = tk.Label(window2, text="Következő: Piros", font=("Arial",14))
+label_blue = tk.Label(window2, text="Következő: Piros", font=("Arial",14))
 label_blue.pack()
+
+bomb_button_blue = tk.Button(window2, text="Játékszabályok", font=("Arial",12), command=show_rules)
+bomb_button_blue.pack()
 
 canvas2 = tk.Canvas(window2, width=700, height=700, bg="white")
 canvas2.pack()
