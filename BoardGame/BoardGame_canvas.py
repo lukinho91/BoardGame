@@ -167,6 +167,23 @@ def get_penultimate_red_from_db():
     return []
 
 
+def red_can_move():
+    if not red_point:
+        return True  # Ha még nincs piros pont, léphet
+    for p in points:
+        if p["color"] in [(0,0,255), (0,150,255)]:  # kék pontok
+            continue
+        if is_neighbor(red_point, p):
+            return True
+    return False  # nincs elérhető szomszéd
+
+def check_red_blocked():
+    if not red_can_move():
+        messagebox.showinfo("Játék vége", "A Kék nyert!!", parent=window1)
+        messagebox.showinfo("Játék vége", "A Kék nyert!!", parent=window2)
+        return True
+    return False
+
 def game_ended():
     if ((kuldetes1["status"] == 2 and kuldetes2["status"] == 2) or
         (kuldetes1["status"] == 2 and kuldetes3["status"] == 2) or
@@ -268,8 +285,9 @@ def refresh():
 
     draw_red(canvas1)
     draw_blue(canvas2)
+    if check_red_blocked():
+        return  # megállítja a piros lépését, mert a kék nyert
     window1.after(50, refresh)
-
 def update_labels():
     text = "Következő: Piros" if click_count % 2 == 0 else "Következő: Kék"
     label_red.config(text=text)
@@ -287,18 +305,23 @@ def on_click_red(event):
         return
 
     mouse_pos = (event.x, event.y)
+    moved = False  # <<< itt kell definiálni, minden esetben
 
     for p in points:
         px, py = p["pos"]
-        center = (px, py)
         distance = math.hypot(mouse_pos[0]-px, mouse_pos[1]-py)
         if distance > p["point_radius"]:
             continue
 
-        if red_point and p!=red_point and not is_neighbor(red_point,p):
+        # --- Nem lehet kék pontokra lépni ---
+        if p["color"] == (0,0,255) or p["color"] == (0,150,255):
             continue
 
-        if red_point and p!=red_point:
+        # Ha piros már van és nem szomszédos, tovább
+        if red_point and p != red_point and not is_neighbor(red_point, p):
+            continue
+
+        if red_point and p != red_point:
             red_point["color"] = (200,200,200)
 
         red_point = p
@@ -307,24 +330,24 @@ def on_click_red(event):
         if game_ended():
             return
 
-        if p.get("status",0)==1:
+        if p.get("status", 0) == 1:
             p["ertek"] += 1
             if p["ertek"] >= goal:
                 p["status"] = 2
 
-        p["status"]=1
+        p["status"] = 1
         click_count += 1
 
         update_labels()
-
-        # DB mentés
         insert_red_position(p)
 
-        #itt a játék vége és a piros nyer
-
-
+        moved = True
         break
 
+    # Ha nem tudott lépni a piros (minden szomszéd kék), kék nyert
+    if not moved:
+        messagebox.showinfo("Játék vége", "A Kék nyert!!", parent=window1)
+        messagebox.showinfo("Játék vége", "A Kék nyert!!", parent=window2)
 
 def on_click_blue(event):
     global click_count, active_blue
