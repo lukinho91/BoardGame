@@ -60,6 +60,9 @@ red_point = None
 active_blue = None
 blue3 = None
 extra_blue_used = False
+kuldetes1 = None
+kuldetes2 = None
+
 
 # Kezdeti szürke pontok kivétele, kivéve a 12. elemet (index 11)
 initial_gray_points = [p for i, p in enumerate(points) if p["color"] == (200,200,200) and i != 11]
@@ -92,6 +95,11 @@ def show_rules():
     text.insert("1.0", rules)
     text.config(state="disabled")
 
+
+def kuldetes():
+    global kuldetes1, kuldetes2
+    kuldetes1, kuldetes2 = random.sample(initial_gray_points, 2)
+    print(kuldetes1["label"], kuldetes2["label"])
 
 
 def color_to_hex(c):
@@ -183,7 +191,7 @@ def draw_red(canvas):
             color = (255,0,0)
             p["ertek"] = red_dict[tuple(p["pos"])]
             if p["ertek"] >= goal:
-                radius = 25
+                p["status"] = 2
 
         # --- KÖR RAJZOLÁS ---
         canvas.create_oval(
@@ -217,16 +225,11 @@ def draw_blue(canvas):  # Kék pontok kirajzolása
         color = p["color"]
 
         # ----- KÉKEK ELŐNYBEN -----
-        if color == (0,0,255) or color == (0,150,255):  # Ha kék pont, ne fessük pirosra
+        if color == (0,0,255) or color == (0,150,255):  # Ha kék pont
             if color == (0,150,255):
                 radius += 5  # Aktív kék nagyobb kör
         else:
-            # Csak szürke pontok esetén festjük pirosra DB alapján
-            if tuple(p["pos"]) in red_dict:
-                color = (255,0,0)
-                #radius = 25 if p["ertek"] >= goal else radius
-            else:
-                color = (200,200,200)  # Szürke pont
+            color = (200,200,200)  # Szürke pont
 
         canvas.create_oval(
             x-radius, y-radius, x+radius, y+radius,
@@ -242,6 +245,7 @@ def draw_blue(canvas):  # Kék pontok kirajzolása
 #  REFRESH
 # ========================
 def refresh():
+
     draw_red(canvas1)
     draw_blue(canvas2)
     window1.after(50, refresh)
@@ -283,7 +287,7 @@ def on_click_red(event):
         if p.get("status",0)==1:
             p["ertek"] += 1
             if p["ertek"] >= goal:
-                p["point_radius"] = 25
+                p["status"] = 2
 
         p["status"]=1
         click_count += 1
@@ -334,11 +338,16 @@ def on_click_blue(event):
         break
 
 
+
 # ========================
-#       ABLAKOK
+#  PIROS ABLAK
 # ========================
 window1 = tk.Tk()
 window1.title("Piros-1")
+kuldetes()
+# Küldetés felirat
+kuldetes_label = tk.Label(window1, text=f"Küldetés: {kuldetes1['label']} és {kuldetes2['label']}", font=("Arial", 12))
+kuldetes_label.pack()
 
 label_red = tk.Label(window1, text="Következő: Piros", font=("Arial",14))
 label_red.pack()
@@ -348,6 +357,7 @@ bomb_button_red.pack()
 
 canvas1 = tk.Canvas(window1, width=700, height=700, bg="white")
 canvas1.pack()
+canvas1.bind("<Button-1>", on_click_red)
 
 
 window2 = tk.Toplevel(window1)
