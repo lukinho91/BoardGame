@@ -2,6 +2,7 @@ import tkinter as tk
 import math
 import random
 import sqlite3
+import tkinter.messagebox as messagebox
 
 # ========================
 #       ADATBÁZIS
@@ -62,6 +63,7 @@ blue3 = None
 extra_blue_used = False
 kuldetes1 = None
 kuldetes2 = None
+kuldetes3 = None
 
 
 # Kezdeti szürke pontok kivétele, kivéve a 12. elemet (index 11)
@@ -97,9 +99,9 @@ def show_rules():
 
 
 def kuldetes():
-    global kuldetes1, kuldetes2
-    kuldetes1, kuldetes2 = random.sample(initial_gray_points, 2)
-    print(kuldetes1["label"], kuldetes2["label"])
+    global kuldetes1, kuldetes2, kuldetes3
+    kuldetes1, kuldetes2, kuldetes3 = random.sample(initial_gray_points, 3)
+    print(kuldetes1["label"], kuldetes2["label"], kuldetes3["label"])
 
 
 def color_to_hex(c):
@@ -165,6 +167,20 @@ def get_penultimate_red_from_db():
     return []
 
 
+def game_ended():
+    if ((kuldetes1["status"] == 2 and kuldetes2["status"] == 2) or
+        (kuldetes1["status"] == 2 and kuldetes3["status"] == 2) or
+        (kuldetes3["status"] == 2 and kuldetes2["status"] == 2)):
+        
+        # Pop-up mindkét ablakon
+        messagebox.showinfo("Játék vége", "A Piros nyert!!", parent=window1)
+        messagebox.showinfo("Játék vége", "A Piros nyert!!", parent=window2)
+        
+        return True
+    return False
+
+ 
+
 # ========================
 #  PIROS MEGJELENÍTÉS
 # ========================
@@ -208,14 +224,14 @@ def draw_red(canvas):
 # ========================
 #  KÉK MEGJELENÍTÉS
 # ========================
-def draw_blue(canvas):  # Kék pontok kirajzolása
-    canvas.delete("all")  # Canvas törlése
+def draw_blue(canvas):
+    canvas.delete("all")
 
     # vonalak kirajzolása
     for start, end in lines:
         canvas.create_line(start[0], start[1], end[0], end[1], fill="green", width=2)
 
-    # utolsó előtti piros betöltése
+    # utolsó előtti piros pont betöltése DB-ből
     red_pos = get_penultimate_red_from_db()
     red_dict = {tuple(r["pos"]): r["ertek"] for r in red_pos}
 
@@ -224,12 +240,19 @@ def draw_blue(canvas):  # Kék pontok kirajzolása
         radius = p["point_radius"]
         color = p["color"]
 
-        # ----- KÉKEK ELŐNYBEN -----
-        if color == (0,0,255) or color == (0,150,255):  # Ha kék pont
+        # Ha ez a pont az utolsó előtti piros → átfestjük pirosra
+        if tuple(p["pos"]) in red_dict:
+            color = (255,0,0)  # piros
+            radius = 25 if red_dict[tuple(p["pos"])] >= goal else radius
+
+        # Ha kék pont
+        elif color == (0,0,255) or color == (0,150,255):
             if color == (0,150,255):
-                radius += 5  # Aktív kék nagyobb kör
+                radius += 0  # aktív kék nagyobb kör
+
+        # Szürke pont
         else:
-            color = (200,200,200)  # Szürke pont
+            color = (200,200,200)
 
         canvas.create_oval(
             x-radius, y-radius, x+radius, y+radius,
@@ -237,10 +260,9 @@ def draw_blue(canvas):  # Kék pontok kirajzolása
         )
         canvas.create_text(
             x, y-radius-10,
-            text=f"{p['label']}",
+            text=f"{p['label']}" + (f" ({red_dict[tuple(p['pos'])]})" if tuple(p["pos"]) in red_dict else ""),
             fill="green"
         )
-
 # ========================
 #  REFRESH
 # ========================
@@ -284,6 +306,9 @@ def on_click_red(event):
         red_point = p
         red_point["color"] = (255,0,0)
 
+        if game_ended():
+            return
+
         if p.get("status",0)==1:
             p["ertek"] += 1
             if p["ertek"] >= goal:
@@ -297,12 +322,15 @@ def on_click_red(event):
         # DB mentés
         insert_red_position(p)
 
+        #itt a játék vége és a piros nyer
+
+
         break
 
 
 def on_click_blue(event):
     global click_count, active_blue
-    
+
     if click_count % 2 != 1:
         return
 
@@ -346,7 +374,7 @@ window1 = tk.Tk()
 window1.title("Piros-1")
 kuldetes()
 # Küldetés felirat
-kuldetes_label = tk.Label(window1, text=f"Küldetés: {kuldetes1['label']} és {kuldetes2['label']}", font=("Arial", 12))
+kuldetes_label = tk.Label(window1, text=f"Küldetés: {kuldetes1['label']} és {kuldetes2['label']} és {kuldetes3['label']}", font=("Arial", 12))
 kuldetes_label.pack()
 
 label_red = tk.Label(window1, text="Következő: Piros", font=("Arial",14))
@@ -359,6 +387,10 @@ canvas1 = tk.Canvas(window1, width=700, height=700, bg="white")
 canvas1.pack()
 canvas1.bind("<Button-1>", on_click_red)
 
+
+# ========================
+#  KÉK ABLAK
+# ========================
 
 window2 = tk.Toplevel(window1)
 window2.title("Kék-2")
