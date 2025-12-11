@@ -240,17 +240,14 @@ def draw_blue(canvas):
         radius = p["point_radius"]
         color = p["color"]
 
-        # Ha ez a pont az utolsó előtti piros → átfestjük pirosra
-        if tuple(p["pos"]) in red_dict:
-            color = (255,0,0)  # piros
-            radius = 25 if red_dict[tuple(p["pos"])] >= goal else radius
-
-        # Ha kék pont
-        elif color == (0,0,255) or color == (0,150,255):
+        # Ha a pont kék, vagy aktív kék
+        if color == (0,0,255) or color == (0,150,255):
             if color == (0,150,255):
-                radius += 0  # aktív kék nagyobb kör
-
-        # Szürke pont
+                radius += 5  # aktív kék nagyobb kör
+        # Ha pont az utolsó előtti piros DB-ben és nem kék, marad piros
+        elif tuple(p["pos"]) in red_dict:
+            color = (255,0,0)
+        # Egyébként szürke
         else:
             color = (200,200,200)
 
@@ -258,9 +255,10 @@ def draw_blue(canvas):
             x-radius, y-radius, x+radius, y+radius,
             fill=color_to_hex(color), outline="black"
         )
+        # Csak a label jelenik meg, sem érték, sem státusz
         canvas.create_text(
             x, y-radius-10,
-            text=f"{p['label']}" + (f" ({red_dict[tuple(p['pos'])]})" if tuple(p["pos"]) in red_dict else ""),
+            text=f"{p['label']}",
             fill="green"
         )
 # ========================
@@ -361,6 +359,8 @@ def on_click_blue(event):
         p["color"] = (0,0,255)
         active_blue = p
         click_count += 1
+       
+
 
         update_labels()
         break
@@ -397,6 +397,7 @@ window2.title("Kék-2")
 
 label_blue = tk.Label(window2, text="Következő: Piros", font=("Arial",14))
 label_blue = tk.Label(window2, text="Következő: Piros", font=("Arial",14))
+#current_target_label = tk.Label(window2, text="Célpont: ---", font=("Arial", 12))
 label_blue.pack()
 
 bomb_button_blue = tk.Button(window2, text="Játékszabályok", font=("Arial",12), command=show_rules)
